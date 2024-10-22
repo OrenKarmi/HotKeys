@@ -1,13 +1,15 @@
 # HotKeys
 Identifying hotkeys in a database
 
-# Purpose: hotkeys.py lists the keys that are accessed most often (aka hotkeys).
+# Purpose:
+**hotkeys.py lists the keys accessed most often (aka hotkeys).**
 
 # Hot Keys:
-A key or small group of keys accessed significantly more frequently than other keys in the keyspace. Increased traffic on this single key negatively impacts latency and CPU performance on the shard.
+A key or small group of keys accessed significantly more frequently than others in the keyspace. Increased traffic on this single key negatively impacts latency and CPU performance on the shard.
 Resharding the database will not reduce the load for the shard where the hotkey is stored.
 
-# Product: hotkeys.py connects to a Redis database and uses Key-event notifications to track keys’ access rates and list the top ones.
+# Product:
+**hotkeys.py connects to a Redis database and uses Key-event notifications to track keys’ access rates and list the top ones.**
 
 # Permissions:
 Permissions are required to access the database, subscribe to key-event notifications, and write to/ read from the database.
@@ -26,7 +28,8 @@ Parameters:
 -T <ms>  : Sleep interval in milliseconds between consecutive loops (default: 10ms) (optional).
 -H, -help, help, ? : Display this usage message and exit (optional).
 
-# Outcome: The script lists the keys accessed the most and the number of times accessed.
+# Outcome:
+**The script lists the keys accessed the most and the number of times accessed.**
 
 # Sample output:
 Top 20 keys with the highest scores:
