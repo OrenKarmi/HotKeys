@@ -4,8 +4,9 @@ Identifying hotkeys in a database
 # Purpose
 hotkeys.py lists the keys that are accessed most often (aka hotkeys).
 
-# Hot Keys: A key or small group of keys accessed significantly more frequently than other keys in the keyspace. Increased traffic on this single key negatively impacts latency and CPU performance on the shard.
-# Resharding the database will not reduce the load for the shard where the hotkey is stored.
+# Hot Keys:
+A key or small group of keys accessed significantly more frequently than other keys in the keyspace. Increased traffic on this single key negatively impacts latency and CPU performance on the shard.
+Resharding the database will not reduce the load for the shard where the hotkey is stored.
 
 # Product
 hotkeys.py connects to a Redis database and uses Key-event notifications to track keys’ access rates and list the top ones.
