@@ -8,6 +8,12 @@ Identifying hotkeys in a database
 A key or small group of keys accessed significantly more frequently than others in the keyspace. Increased traffic on this single key negatively impacts latency and CPU performance on the shard.
 Resharding the database will not reduce the load for the shard where the hotkey is stored.
 
+Currently, there is no method for easily tracking hotkeys. The information available with commands-stats, slowlog, and bigkeys will not necessarily indicate hotkeys. Running the monitor command and analyzing the output may point to hotkeys. However, the monitor command may impact the service.
+
+Monitoring the application usage of Redis and identifying hotkeys should be done on the application side using APM tools.
+
+Due to the implications listed below, this tool should be used only as a last resort for tracking hotkeys.
+
 # Product:
 **hotkeys.py connects to a Redis database and uses Key-event notifications to track keys’ access rates and list the top ones.**
 
@@ -16,7 +22,7 @@ Permissions are required to access the database, subscribe to key-event notifica
 # Memory Impact:
 The script creates and writes to a sorted set on the database, storing the key names and the number of times accessed. The memory impact is <avg key name size> * <number of keys accessed>
 #Performance impact:
-The script updates the sorted set for all CRUD operations, impacting the shard CPU where the sorted set is stored (possibly making it a hotkey too). The script sleeps between events tracked to reduce the CPU impact.
+The script updates the sorted set named "hotkeys" for all CRUD operations, impacting the shard CPU where the sorted set is updated (possibly making it a hotkey too). The script sleeps between events tracked to reduce the CPU impact.
 
 # Usage:
 Usage: python3 hotkeys.py -h <host> -p <port> [-l] [-t <time>] [-T <interval>] [-H | -help | help | ?]
@@ -30,6 +36,7 @@ Parameters:
 
 # Outcome:
 **The script lists the keys accessed the most and the number of times accessed.**
+**NOTE: The access rate output indicates only a fraction of the number of times a key was accessed.** This is because the script receives no key-event notifications during the interleaving sleep intervals (configurable, default 10ms).
 
 # Sample output:
 Top 20 keys with the highest scores:
