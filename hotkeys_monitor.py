@@ -2,7 +2,15 @@ import argparse
 import redis
 import time
 
-def monitor_redis(host="localhost", port=6379, password=None, dst_host="localhost", dst_port=6379, dst_password=None, t=10, T=10):
+# Define the command-to-score mapping
+CMD_TO_SCORE = {
+    "GET": 1,
+    "SET": 2,
+    "HSET": 2,
+    "HGETALL": 1
+}
+
+def monitor_redis(host="localhost", port=6379, password=None, dst_host="localhost", dst_port=6379, dst_password=None, t=10, T=10, s=1, verbose=False, continue_run=False):
     try:
         # Connect to source Redis
         src_client = redis.Redis(host=host, port=port, password=password)
@@ -31,15 +39,28 @@ def monitor_redis(host="localhost", port=6379, password=None, dst_host="localhos
                     # Parse and print only the 'command' field if it exists
                     if 'command' in command:
                         command_str = command['command']
-                        print(command_str)
+                        if verbose:
+                            print(command_str)
                         
-                        # Extract element name (second parameter)
+                        # Extract element name (second parameter) and element command (first parameter)
                         command_parts = command_str.split()
                         if len(command_parts) >= 2:
+                            element_cmd = command_parts[0]
                             element_name = command_parts[1]
                             
-                            # Increment score in sorted set 'hotkeys'
-                            dst_client.zincrby("hotkeys", 1, element_name)
+                            # Determine score based on -s parameter
+                            if s == 1:
+                                score = 1
+                            elif s == 2:
+                                # Use predefined score or default to 1 if command not in CMD_TO_SCORE
+                                score = CMD_TO_SCORE.get(element_cmd, 1)
+                            
+                            # Increment the score in the sorted set 'hotkeys'
+                            dst_client.zincrby("hotkeys", score, element_name)
+                            
+                            # Print the element_name, element_cmd, and score if verbose
+                            if verbose:
+                                print(f"Element Name: {element_name}, Command: {element_cmd}, Score: {score}")
                     
                     if time.time() >= end_time:
                         break
@@ -52,6 +73,11 @@ def monitor_redis(host="localhost", port=6379, password=None, dst_host="localhos
         print("\nTop 20 hotkeys:")
         for hotkey, score in top_hotkeys:
             print(f"{hotkey.decode('utf-8')}: {score}")
+
+        # Delete the hotkeys sorted set unless -c is specified
+        if not continue_run:
+            dst_client.delete("hotkeys")
+            print("\nDeleted 'hotkeys' sorted set.")
     
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -66,6 +92,9 @@ if __name__ == "__main__":
     parser.add_argument("--dst_a", default=None, help="Destination Redis database password")
     parser.add_argument("-t", type=int, default=10, help="Monitor duration in milliseconds")
     parser.add_argument("-T", type=int, default=10, help="Total execution time in seconds")
+    parser.add_argument("-s", type=int, default=1, help="Scoring logic: 1 for constant increment, 2 for command-based scoring")
+    parser.add_argument("-v", action="store_true", help="Verbose mode. Print monitored command and element details.")
+    parser.add_argument("-c", action="store_true", help="Continue mode. Do not delete the 'hotkeys' sorted set at the end of the script.")
 
     args = parser.parse_args()
 
@@ -77,5 +106,8 @@ if __name__ == "__main__":
         dst_port=args.dst_p,
         dst_password=args.dst_a,
         t=args.t,
-        T=args.T
+        T=args.T,
+        s=args.s,
+        verbose=args.v,
+        continue_run=args.c
     )
