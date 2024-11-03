@@ -2,7 +2,7 @@
 Identifying hotkeys in a database
 
 # Purpose:
-**hotkeys.py lists the keys accessed most often (aka hotkeys).**
+**List the keys accessed most often (aka hotkeys).**
 
 # Hot Keys:
 A key or small group of keys accessed significantly more frequently than others in the keyspace. Increased traffic on this single key negatively impacts latency and CPU performance on the shard.
@@ -15,32 +15,39 @@ Monitoring the application usage of Redis and identifying hotkeys should be done
 Due to the implications listed below, this tool should be used only as a last resort for tracking hotkeys.
 
 # Product:
-**hotkeys.py connects to a Redis database and uses Key-event notifications to track keys’ access rates and list the top ones.**
+Version 1 (to be discontinued): hotkeys.py connects to a Redis database and uses Key-event notifications to track keys’ access rates and list the top ones.  **NOTE: Key-event notifications are triggered only for changes but not reads (CUD, not R) - hence “key reads” will not be counted.
+**Version 2 - hotkeys_monitor.py connects to a Redis database and monitors commands executed to detect hotkeys.**
+The script uses the MONITOR command to detect the commands executed. To reduce the performance impact of running the MONITOR command - the script runs MONITOR for short intervals (configurable, default 10ms MONITOR interval every 1 second).
+The script connects to the “tracked database” and writes the (temporary) output to a destination database. If not provided, the script will use the tracked database to store the hotkeys result (sorted set).
 
 # Permissions:
-Permissions are required to access the database, subscribe to key-event notifications, and write to/ read from the database.
-There is no need to have write permissions to the tracked database if the script has destination database credentials.
+Permissions are required to access the database and run the MONITOR command. Write permissions required if no destination database credentials are provided. R/W permissions to the destination database required.
+
+
 # Memory Impact:
 The script creates and writes to a sorted set on the database, storing the key names and the number of times accessed. The memory impact is <avg key name size> * <number of keys accessed>
 The tracked database has no memory impact if the script has destination database credentials.
 #Performance impact:
-The script updates the sorted set named "hotkeys" for all CRUD operations, impacting the shard CPU where the sorted set is updated (possibly making it a hotkey too). The script sleeps between events tracked to reduce the CPU impact.
-If the script is provided with destination database credentials - the tracked database has no performance impact, and the "hotkeys" sorted set will not appear in the tracked database results.
+The short MONITOR intervals are expected to cause a small increase in shards' CPUs. The script sleeps between events tracked to reduce the CPU impact.
+If a destination database is NOT provided - the script updates a sorted set named “hotkeys” for all CRUD operations, impacting the tracked database shard CPU where the sorted set is updated (possibly making it a hotkey, too).
 
 # Usage:
-    Usage: python3 hotkeys.py -h <host> -p <port> [-a <password>] [-dst_h <host>] [-dst_p <port>] [-dst_a <password>] [-l] [-t <time>] [-T <interval>] [-H | -help | help | ?]
+python3 monitor_redis.py --host redis_source_host -p 6379 -a source_password \
+--dst_h redis_destination_host --dst_p 6380 --dst_a destination_password \
+-t 20 -T 60 -s 2 -v -c
 
-    Parameters:
-    -h <host>      : Host (FQDN) of the Redis database for listening (default: localhost).
-    -p <port>      : Port of the Redis database for listening (default: 6379).
-    -a <password>  : Password for the Redis database for listening (optional).
-    -dst_h <host>  : Destination Redis database host for storing hotkeys (if omitted, uses the tracked database).
-    -dst_p <port>  : Destination Redis database port for storing hotkeys (if omitted, uses the tracked database).
-    -dst_a <password> : Password for the destination Redis database (optional).
-    -l             : List the current content of hotkeys and exit (optional).
-    -t <time>      : Time to operate the script before terminating (default: 10 seconds, range: 1-100).
-    -T <ms>        : Sleep interval in milliseconds between consecutive loops (default: 10 ms).
-    -H, -help, help, ? : Display this usage message and exit.
+Explanation of Each Parameter
+--host redis_source_host: Sets the source Redis host to redis_source_host.
+-p 6379: Sets the source Redis port to 6379.
+-a source_password: Sets the source Redis password to source_password.
+--dst_h redis_destination_host: Sets the destination Redis host to redis_destination_host.
+--dst_p 6380: Sets the destination Redis port to 6380.
+--dst_a destination_password: Sets the destination Redis password to destination_password.
+-t 20: Sets each monitor duration to 20 milliseconds.
+-T 60: Sets the total script runtime to 60 seconds.
+-s 2: Sets scoring logic to 2, where score is based on the command type.
+-v: Enables verbose mode to print command details.
+-c: Enables continue mode, retaining the hotkeys sorted set at the end of the script.
 
 # Outcome:
 **The script lists the keys accessed the most and the number of times accessed.**
